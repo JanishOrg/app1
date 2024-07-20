@@ -1,0 +1,11 @@
+{
+  "name": "LSdriveUserApp",
+  "displayName": "LSdriveUserApp",
+  "expo": {
+    "extra": {
+      "eas": {
+        "projectId": "f2b90a7a-07fe-4950-b85b-7be500d62299"
+      }
+    }
+  }
+}
