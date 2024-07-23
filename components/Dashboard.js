@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { View, StyleSheet, TouchableOpacity, Text, Platform, Alert } from 'react-native';
+import { View, StyleSheet, TouchableOpacity, Text, Platform } from 'react-native';
 import MapView, { Marker } from 'react-native-maps';
 import Geolocation from '@react-native-community/geolocation';
 import { GooglePlacesAutocomplete } from 'react-native-google-places-autocomplete';
@@ -23,11 +23,10 @@ const Dashboard = () => {
   });
   const colorScheme = useColorScheme();
   const navigation = useNavigation();
-  const [isSelectingPickup, setIsSelectingPickup] = useState(false); // State to track if selecting pickup or destination
+  const [isSelectingPickup, setIsSelectingPickup] = useState(false);
   const [isSelectingDestination, setIsSelectingDestination] = useState(false);
 
   useEffect(() => {
-    // Load rideData from AsyncStorage when the component mounts
     loadRideData();
     getCurrentLocation();
   }, []);
@@ -35,7 +34,7 @@ const Dashboard = () => {
   const saveRideData = async (data) => {
     try {
       await AsyncStorage.setItem('rideData', JSON.stringify(data));
-      const allData = await getAllDataInStorage(); // Wait for the result
+      const allData = await getAllDataInStorage();
       console.log('AsyncStorage updated:', allData);
     } catch (error) {
       console.error('Error saving ride data:', error);
@@ -48,6 +47,20 @@ const Dashboard = () => {
       if (data) {
         const parsedData = JSON.parse(data);
         setRideData(parsedData);
+        if (parsedData.current_latitude && parsedData.current_longitude) {
+          setPickupLocation({
+            latitude: parsedData.current_latitude,
+            longitude: parsedData.current_longitude,
+            address: parsedData.current_address,
+          });
+        }
+        if (parsedData.destination_latitude && parsedData.destination_longitude) {
+          setDestination({
+            latitude: parsedData.destination_latitude,
+            longitude: parsedData.destination_longitude,
+            address: parsedData.destination_address,
+          });
+        }
       }
     } catch (error) {
       console.error('Error loading ride data:', error);
@@ -95,20 +108,14 @@ const Dashboard = () => {
     };
     setPickupLocation(newPickupLocation);
     animateToLocation(newPickupLocation);
-    // Update rideData with new pickup location
-    setRideData(prevData => ({
-      ...prevData,
-      current_latitude: newPickupLocation.latitude,
-      current_longitude: newPickupLocation.longitude,
-      current_address: newPickupLocation.address,
-    }));
-    // Save updated rideData to AsyncStorage
-    saveRideData({
+    const updatedRideData = {
       ...rideData,
       current_latitude: newPickupLocation.latitude,
       current_longitude: newPickupLocation.longitude,
       current_address: newPickupLocation.address,
-    });
+    };
+    setRideData(updatedRideData);
+    saveRideData(updatedRideData);
   };
 
   const onDestinationSelected = async (details) => {
@@ -119,20 +126,14 @@ const Dashboard = () => {
     };
     setDestination(newDestination);
     animateToLocation(newDestination);
-    // Update rideData with new destination
-    setRideData(prevData => ({
-      ...prevData,
-      destination_latitude: newDestination.latitude,
-      destination_longitude: newDestination.longitude,
-      destination_address: newDestination.address,
-    }));
-    // Save updated rideData to AsyncStorage
-    saveRideData({
+    const updatedRideData = {
       ...rideData,
       destination_latitude: newDestination.latitude,
       destination_longitude: newDestination.longitude,
       destination_address: newDestination.address,
-    });
+    };
+    setRideData(updatedRideData);
+    saveRideData(updatedRideData);
   };
 
   const getAllDataInStorage = async () => {
@@ -148,56 +149,44 @@ const Dashboard = () => {
 
   const onMapLongPress = async (event) => {
     const { coordinate } = event.nativeEvent;
+    const address = await fetchAddress(coordinate);
     if (isSelectingPickup) {
-      const address = await fetchAddress(coordinate);
-      setPickupLocation({ ...coordinate, address });
-      animateToLocation(coordinate);
-      setIsSelectingPickup(false);
       const newPickupLocation = {
         latitude: coordinate.latitude,
         longitude: coordinate.longitude,
         address: address,
-      };  
-      // Update rideData with new pickup location
-      setRideData(prevData => ({
-        ...prevData,
-        current_latitude: newPickupLocation.latitude,
-        current_longitude: newPickupLocation.longitude,
-        current_address: newPickupLocation.address,
-      }));
-      // Save updated rideData to AsyncStorage
-      saveRideData({
+      };
+      setPickupLocation(newPickupLocation);
+      animateToLocation(coordinate);
+      setIsSelectingPickup(false);
+      const updatedRideData = {
         ...rideData,
         current_latitude: newPickupLocation.latitude,
         current_longitude: newPickupLocation.longitude,
         current_address: newPickupLocation.address,
-      });
+      };
+      setRideData(updatedRideData);
+      saveRideData(updatedRideData);
     } else if (isSelectingDestination) {
-      const address = await fetchAddress(coordinate);
-      setDestination({ ...coordinate, address });
-      animateToLocation(coordinate);
-      setIsSelectingDestination(false);
       const newDestination = {
         latitude: coordinate.latitude,
         longitude: coordinate.longitude,
         address: address,
-      };  
-      setRideData(prevData => ({
-        ...prevData,
-        destination_latitude: newDestination.latitude,
-        destination_longitude: newDestination.longitude,
-        destination_address: newDestination.address,
-      }));
-      // Save updated rideData to AsyncStorage
-      saveRideData({
+      };
+      setDestination(newDestination);
+      animateToLocation(coordinate);
+      setIsSelectingDestination(false);
+      const updatedRideData = {
         ...rideData,
         destination_latitude: newDestination.latitude,
         destination_longitude: newDestination.longitude,
         destination_address: newDestination.address,
-      });  
+      };
+      setRideData(updatedRideData);
+      saveRideData(updatedRideData);
     }
   };
-  
+
   const fetchAddress = async (coordinate) => {
     try {
       const response = await fetch(`https://maps.googleapis.com/maps/api/geocode/json?latlng=${coordinate.latitude},${coordinate.longitude}&key=${GOOGLE_API_KEY}`);
@@ -241,7 +230,7 @@ const Dashboard = () => {
           textInputProps={{
             placeholderTextColor: 'black',
             color: 'black',
-            value: pickupLocation ? pickupLocation.address : '', // Update the value with selected pickup location address
+            value: pickupLocation,
           }}
           onPress={(data, details = null) => onPickupSelected(details)}
           fetchDetails={true}
@@ -257,7 +246,7 @@ const Dashboard = () => {
           textInputProps={{
             placeholderTextColor: 'black',
             color: 'black',
-            value: destination ? destination.address : '', // Update the value with selected destination address
+            value: destination,
           }}
           onPress={(data, details = null) => onDestinationSelected(details)}
           fetchDetails={true}
