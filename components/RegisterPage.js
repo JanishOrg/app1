@@ -63,7 +63,6 @@ const RegisterPage = () => {
     console.log('Request body:', requestBody);
     console.log(JSON.stringify(requestBody))
 
-    // Call your API endpoint here to register the user
     fetch(`${API_URL}/api/driver/`, {
       method: 'POST',
       headers: {
@@ -71,24 +70,27 @@ const RegisterPage = () => {
       },
       body: JSON.stringify(requestBody),
     })
-      .then(response => {
-        if (!response.ok) {
-          throw new Error(`HTTP error! Status: ${response.status}`);
+      .then(response => response.json().then(data => ({ status: response.status, body: data })))
+      .then(({ status, body }) => {
+        if (status >= 200 && status < 300) {
+          console.log('Registration successful:', body);
+          alert('Your registration is successful!');
+          navigation.navigate('LoginPage');
+        } else {
+          console.error('Registration failed:', body);
+          if (body.errors) {
+            const errorMessages = Object.values(body.errors).flat().join('\n');
+            alert(`Registration failed: ${errorMessages}`);
+          } else {
+            alert(`Registration failed: ${body.message || 'Please try again later.'}`);
+          }
         }
-        return response.json();
-      })
-      .then(data => {
-        // Handle success response
-        console.log('Registration successful:', data);
-        alert('Your registration is successful!');
-        navigation.navigate('LoginPage')
       })
       .catch(error => {
-        // Handle error
         console.error('Registration failed:', error);
         alert('Registration failed. Please try again later.');
       });
-  };
+    };
 
   return (
     <KeyboardAwareScrollView>
